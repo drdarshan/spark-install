@@ -1,40 +1,8 @@
-
-import os
-import re
-import sys
-import shutil
-import logging
-import argparse
-
-# Set up Logging parameters #
-logger = logging.getLogger()
-handler = logging.StreamHandler()
-logging.basicConfig(filename="install_spark.log")
-formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.WARNING)
-logger.info("Logging started")
-
-parser = argparse.ArgumentParser(description="Spark Installation Script")
-parser.add_argument("-sv", "--sparkversion", help="Spark Version to be used.", required=False)
-parser.add_argument("-hv", "--hadoopversion", help="Hadoop Version to be used.", required=False)
-parser.add_argument("-U", "--Uninstall", help="Uninstall Spark", action="store_true", default=False, required=False)
-parser.add_argument("-i", "--information", help="Show installed versions of Spark", action="store_true", default=False, required=False)
-
-args = parser.parse_args()
-# Debug log the values #
-logger.debug("Spark Version specified: %s" % args.sparkversion)
-logger.debug("Hadoop Version specified: %s" % args.hadoopversion)
-logger.debug("Uninstall argument: %s" % args.Uninstall)
-logger.debug("Information argument: %s" % args.information)
-
 SPARK_VERSIONS_FILE_PATTERN = "spark-(.*)-bin-(?:hadoop)?(.*)"
 SPARK_VERSIONS_URL = "https://raw.githubusercontent.com/rstudio/sparklyr/master/inst/extdata/install_spark.csv"
 WINUTILS_URL = "https://github.com/steveloughran/winutils/archive/master.zip"
 
 NL = os.linesep
-
 
 def _verify_java():
     import subprocess
@@ -71,7 +39,6 @@ def _file_age_days(csvfile):
 def _combine_versions(spark_version, hadoop_version):
     return spark_version + " " + hadoop_version
 
-
 def _download_file(url, local_file):
     try:
         from urllib import urlretrieve
@@ -79,12 +46,10 @@ def _download_file(url, local_file):
         from urllib.request import urlretrieve
     urlretrieve(url, local_file)
 
-
 def spark_can_install():
     install_dir = spark_install_dir()
     if not os.path.isdir(install_dir):
         os.makedirs(install_dir)
-
 
 def spark_versions_initialize():
     spark_can_install()
@@ -93,15 +58,18 @@ def spark_versions_initialize():
         logger.info("Downloading %s to %s" % (SPARK_VERSIONS_URL, csvfile))
         _download_file(SPARK_VERSIONS_URL, csvfile)
     import csv
-    return [{"spark_version": t[0], "hadoop_version": t[1], "hadoop_label": t[2], "download": t[3], "default": (t[4].strip() == "TRUE"), "hadoop_default": (t[5].strip == "TRUE")} for t in csv.reader(open(csvfile, "r").readlines()[1:]) if len(t) == 6]
-
+    return [{"spark_version": t[0], 
+             "hadoop_version": t[1], 
+             "hadoop_label": t[2], 
+             "download": t[3], 
+             "default": (t[4].strip() == "TRUE"), 
+             "hadoop_default": (t[5].strip == "TRUE")} for t in csv.reader(open(csvfile, "r").readlines()[1:]) if len(t) == 6]
 
 def spark_versions():
     versions = spark_versions_initialize()
     installed = set([_combine_versions(v["spark_version"], v["hadoop_version"]) for v in spark_installed_versions()])
     for v in versions: v["installed"] = _combine_versions(v["spark_version"], v["hadoop_version"]) in installed
     return versions
-
 
 def spark_versions_info(spark_version, hadoop_version):
     versions = filter(lambda v: v["spark_version"] == spark_version and v["hadoop_version"] == hadoop_version, spark_versions())
@@ -161,7 +129,7 @@ def spark_install_find(spark_version=None, hadoop_version=None, installed_only=T
             logger.critical("Please select an available version pair for Spark and Hadoop from the following list: ")
             import csv
             csvfile = os.path.join(spark_install_dir(), "install_spark.csv")
-            eligibleVersionPairings = [{"--sparkversion": t[0], "--hadoopversion": t[1]} for t in csv.reader(open(csvfile, "r").readlines()[1:]) if len(t) == 6]
+            eligibleVersionPairings = [{"--spark-version": t[0], "--hadoop-version": t[1]} for t in csv.reader(open(csvfile, "r").readlines()[1:]) if len(t) == 6]
             for elem in eligibleVersionPairings:
                 logging.critical(elem)
             raise RuntimeError("Please select a valid pair of Spark and Hadoop versions to download.")
@@ -210,15 +178,11 @@ def spark_install_dir():
     homedir = os.getenv("LOCALAPPDATA") if sys.platform == "win32" else os.getenv("HOME")
     return os.getenv("SPARK_INSTALL_DIR", os.path.join(homedir, "spark"))
 
-
 def spark_conf_log4j_set_value(install_info, properties, reset):
     log4jproperties_file = os.path.join(install_info["spark_conf_dir"], "log4j.properties")
     if not os.path.isfile(log4jproperties_file) or reset:
         template = os.path.join(install_info["spark_conf_dir"], "log4j.properties.template")
         shutil.copyfile(template, log4jproperties_file)
-
-#    from pprint import pprint
-#    pprint(properties)
 
     with open(log4jproperties_file, "r") as infile:
         lines = infile.readlines()
@@ -338,7 +302,6 @@ def spark_install_winutils(spark_dir, hadoop_version):
 
 
 def spark_install(spark_version=None, hadoop_version=None, reset=True, logging="INFO"):
-
     info = spark_install_find(spark_version, hadoop_version, installed_only=False)
 
     spark_can_install()
@@ -394,6 +357,30 @@ def spark_install(spark_version=None, hadoop_version=None, reset=True, logging="
 
 
 def main():
+    # Set up Logging parameters #
+    logger = logging.getLogger()
+    handler = logging.StreamHandler()
+    logging.basicConfig(filename="install_spark.log")
+    formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.WARNING)
+    logger.info("Logging started")
+    
+    parser = argparse.ArgumentParser(description="Spark Installation Script")
+    parser.add_argument("-s", "--spark-version", help="Spark Version to be used.", required=False)
+    parser.add_argument("-h", "--hadoop-version", help="Hadoop Version to be used.", required=False)
+    parser.add_argument("-u", "--uninstall", help="Uninstall Spark", action="store_true", default=False, required=False)
+    parser.add_argument("-i", "--information", help="Show installed versions of Spark", action="store_true", default=False, required=False)
+    
+    args = parser.parse_args()
+
+    # Debug log the values #
+    logger.debug("Spark Version specified: %s" % args.sparkversion)
+    logger.debug("Hadoop Version specified: %s" % args.hadoopversion)
+    logger.debug("Uninstall argument: %s" % args.Uninstall)
+    logger.debug("Information argument: %s" % args.information)
+
     # Check for Uninstall or information flags and react appropriately
     if args.Uninstall:
         if args.sparkversion and args.hadoopversion:
